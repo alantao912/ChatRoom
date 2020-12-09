@@ -1,3 +1,5 @@
+import org.apache.commons.lang3.StringUtils;
+
 import java.io.*;
 import java.net.Socket;
 
@@ -18,6 +20,7 @@ public class ServerWorker extends Thread{
         }
     }
 
+    // TODO handle backspaces
     private void handleClientSocket() throws IOException {
         InputStream inputStream = clientSocket.getInputStream();
         OutputStream outputStream = clientSocket.getOutputStream();
@@ -25,14 +28,35 @@ public class ServerWorker extends Thread{
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
         String line;
         while ((line = reader.readLine()) != null) {
-            //String[] tokens = StringUtils
-            if ("quit".equalsIgnoreCase(line)) {
-                break;
+            String[] tokens = StringUtils.split(line);
+            if (tokens != null && tokens.length > 0) {
+                String cmd = tokens[0];
+                if (line.equalsIgnoreCase("quit")) {
+                    break;
+                } else if (cmd.equalsIgnoreCase("login")) {
+                    handleLogin(outputStream, tokens);
+                } else {
+                    String msg = "Unknown command: " + cmd + "\r\n";
+                    outputStream.write(msg.getBytes());
+                }
             }
-             String msg = "You typed: " + line + "\n";
-            outputStream.write(msg.getBytes());
         }
 
         clientSocket.close();
+    }
+
+    private void handleLogin(OutputStream outputStream, String[] tokens) throws IOException {
+        if (tokens.length == 3) {
+            String login = tokens[1];
+            String password = tokens[2];
+
+            if (login.equals("guest") && password.equals("password")) {
+                String msg = "Welcome, guest!\r\n";
+                outputStream.write(msg.getBytes());
+            } else {
+                String msg = "Incorrect username/password";
+                outputStream.write(msg.getBytes());
+            }
+        }
     }
 }
