@@ -1,7 +1,10 @@
+package server;
+
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.*;
 import java.net.Socket;
+import java.util.HashSet;
 import java.util.List;
 
 public class ServerWorker extends Thread{
@@ -10,6 +13,7 @@ public class ServerWorker extends Thread{
     private final Server server;
     private String login = null;
     private OutputStream outputStream;
+    private HashSet<String> topicSet = new HashSet<>();
 
     public ServerWorker(Server server, Socket clientSocket) {
         this.server = server;
@@ -40,9 +44,11 @@ public class ServerWorker extends Thread{
                     break;
                 } else if (cmd.equalsIgnoreCase("login")) {
                     handleLogin(outputStream, tokens);
-                } else if (cmd.equalsIgnoreCase("dm")) {
+                } else if (cmd.equalsIgnoreCase("msg")) {
                     String[] tokensMsg = StringUtils.split(line, null, 3);
-                    handleDirectMessage(tokensMsg);
+                    handleMessage(tokensMsg);
+                } else if (cmd.equals("join")) {
+                    handleJoin(tokens);
                 } else {
                     String msg = "Unknown command: " + cmd + "\r\n";
                     outputStream.write(msg.getBytes());
@@ -53,16 +59,45 @@ public class ServerWorker extends Thread{
         clientSocket.close();
     }
 
-    // Format: msg username body
-    private void handleDirectMessage(String[] tokens) throws IOException {
-        String sendTo = tokens[1];
-        String body = tokens[2];
+    // TODO organize methods and add javadoc
+    public boolean isTopicMember(String topic) {
+        return topicSet.contains(topic);
+    }
 
-        List<ServerWorker> workerList = server.getWorkerList();
-        for (ServerWorker serverWorker : workerList) {
-            if (sendTo.equals(serverWorker.getLogin())) {
-                String msg = getLogin() + "> " + body + "\r\n";
-                serverWorker.send(msg);
+    private void handleJoin(String[] tokens) {
+        if (tokens.length > 1) {
+            String topic = tokens[1];
+            topicSet.add(topic);
+
+        }
+    }
+
+    /* Direct Message: msg username body
+       Message Topic: msg #topic body */
+    private void handleMessage(String[] tokens) throws IOException {
+        if (tokens.length != 3) {
+            this.send("Missing one or more arguments.\r\n");
+        } else {
+            String sendTo = tokens[1];
+            String body = tokens[2];
+
+            boolean isTopic = sendTo.charAt(0) == '#';
+
+            if (isTopic && !this.isTopicMember(sendTo)) {
+                this.send("You are not a member of that topic.\r\n");
+            } else {
+                List<ServerWorker> workerList = server.getWorkerList();
+                for (ServerWorker serverWorker : workerList) {
+                    if (isTopic && serverWorker.isTopicMember(sendTo) && !this.equals(serverWorker)) {
+                        String msg = sendTo + ": <" + login + "> " + body + "\r\n";
+                        serverWorker.send(msg);
+                    } else {
+                        if (sendTo.equals(serverWorker.getLogin())) {
+                            String msg = "<" + login + "> " + body + "\r\n";
+                            serverWorker.send(msg);
+                        }
+                    }
+                }
             }
         }
     }
