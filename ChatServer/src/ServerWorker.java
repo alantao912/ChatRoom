@@ -35,7 +35,8 @@ public class ServerWorker extends Thread{
             String[] tokens = StringUtils.split(line);
             if (tokens != null && tokens.length > 0) {
                 String cmd = tokens[0];
-                if (line.equalsIgnoreCase("quit")) {
+                if (cmd.equalsIgnoreCase("quit") || cmd.equals("logoff")) {
+                    handleLogoff();
                     break;
                 } else if (cmd.equalsIgnoreCase("login")) {
                     handleLogin(outputStream, tokens);
@@ -75,7 +76,7 @@ public class ServerWorker extends Thread{
                     }
                 }
 
-                // Sends current user of all other users currently online
+                // Sends current user all other users currently online
                 for (ServerWorker serverWorker : workerList) {
                     String msg2 = "User '" + serverWorker.getLogin() + "' is online.\r\n";
                     if (!getLogin().equals(serverWorker.getLogin()) && serverWorker.getLogin() != null) {
@@ -87,6 +88,20 @@ public class ServerWorker extends Thread{
                 outputStream.write(msg.getBytes());
             }
         }
+    }
+
+    private void handleLogoff() throws IOException {
+        server.removeWorker(this);
+        List<ServerWorker> workerList = server.getWorkerList();
+
+        // Notify all other users of logoff
+        String offlineMsg = "User '" + getLogin() + "' has logged off.\r\n";
+        for (ServerWorker serverWorker : workerList) {
+            if (!this.equals(serverWorker)) {
+                serverWorker.send(offlineMsg);
+            }
+        }
+        clientSocket.close();
     }
 
     private void send(String msg) throws IOException {
