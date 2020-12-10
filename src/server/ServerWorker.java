@@ -47,8 +47,10 @@ public class ServerWorker extends Thread{
                 } else if (cmd.equalsIgnoreCase("msg")) {
                     String[] tokensMsg = StringUtils.split(line, null, 3);
                     handleMessage(tokensMsg);
-                } else if (cmd.equals("join")) {
+                } else if (cmd.equalsIgnoreCase("join")) {
                     handleJoin(tokens);
+                } else if (cmd.equalsIgnoreCase("leave")) {
+                    handleLeave(tokens);
                 } else {
                     String msg = "Unknown command: " + cmd + "\r\n";
                     outputStream.write(msg.getBytes());
@@ -60,15 +62,24 @@ public class ServerWorker extends Thread{
     }
 
     // TODO organize methods and add javadoc
+    // TODO handle missing arguments
     public boolean isTopicMember(String topic) {
         return topicSet.contains(topic);
     }
 
-    private void handleJoin(String[] tokens) {
+    private void handleJoin(String[] tokens) throws IOException {
         if (tokens.length > 1) {
             String topic = tokens[1];
             topicSet.add(topic);
+            this.send("Joined " + topic + ".");
+        }
+    }
 
+    private void handleLeave(String[] tokens) throws IOException {
+        if (tokens.length > 1) {
+            String topic = tokens[1];
+            topicSet.remove(topic);
+            this.send("Left " + topic + ".");
         }
     }
 
