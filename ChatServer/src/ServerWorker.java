@@ -40,6 +40,9 @@ public class ServerWorker extends Thread{
                     break;
                 } else if (cmd.equalsIgnoreCase("login")) {
                     handleLogin(outputStream, tokens);
+                } else if (cmd.equalsIgnoreCase("dm")) {
+                    String[] tokensMsg = StringUtils.split(line, null, 3);
+                    handleDirectMessage(tokensMsg);
                 } else {
                     String msg = "Unknown command: " + cmd + "\r\n";
                     outputStream.write(msg.getBytes());
@@ -48,6 +51,20 @@ public class ServerWorker extends Thread{
         }
 
         clientSocket.close();
+    }
+
+    // Format: msg username body
+    private void handleDirectMessage(String[] tokens) throws IOException {
+        String sendTo = tokens[1];
+        String body = tokens[2];
+
+        List<ServerWorker> workerList = server.getWorkerList();
+        for (ServerWorker serverWorker : workerList) {
+            if (sendTo.equals(serverWorker.getLogin())) {
+                String msg = getLogin() + "> " + body + "\r\n";
+                serverWorker.send(msg);
+            }
+        }
     }
 
     public String getLogin() {
