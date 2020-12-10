@@ -2,12 +2,17 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.io.*;
 import java.net.Socket;
+import java.util.List;
 
 public class ServerWorker extends Thread{
 
     private final Socket clientSocket;
+    private final Server server;
+    private String login = null;
+    private OutputStream outputStream;
 
-    public ServerWorker(Socket clientSocket) {
+    public ServerWorker(Server server, Socket clientSocket) {
+        this.server = server;
         this.clientSocket = clientSocket;
     }
 
@@ -20,10 +25,9 @@ public class ServerWorker extends Thread{
         }
     }
 
-    // TODO handle backspaces
     private void handleClientSocket() throws IOException {
         InputStream inputStream = clientSocket.getInputStream();
-        OutputStream outputStream = clientSocket.getOutputStream();
+        this.outputStream = clientSocket.getOutputStream();
 
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
         String line;
@@ -45,18 +49,49 @@ public class ServerWorker extends Thread{
         clientSocket.close();
     }
 
+    public String getLogin() {
+        return login;
+    }
+
     private void handleLogin(OutputStream outputStream, String[] tokens) throws IOException {
         if (tokens.length == 3) {
             String login = tokens[1];
             String password = tokens[2];
 
-            if (login.equals("guest") && password.equals("password")) {
-                String msg = "Welcome, guest!\r\n";
+            if ((login.equals("Devrim") && password.equals("password")) || (login.equals("Alan") && password.equals("password"))) {
+                this.login = login;
+                String msg = "Welcome, " + getLogin() + "!\r\n";
                 outputStream.write(msg.getBytes());
+                System.out.println("User '" + getLogin() + "' logged in successfully.");
+
+                String onlineMsg = "User '" + getLogin() + "' is now online.\r\n";
+
+                List<ServerWorker> workerList = server.getWorkerList();
+
+                // Notify all other users of new login
+                for (ServerWorker serverWorker : workerList) {
+                    if (!this.equals(serverWorker)) {
+                        serverWorker.send(onlineMsg);
+                    }
+                }
+
+                // Sends current user of all other users currently online
+                for (ServerWorker serverWorker : workerList) {
+                    String msg2 = "User '" + serverWorker.getLogin() + "' is online.\r\n";
+                    if (!getLogin().equals(serverWorker.getLogin()) && serverWorker.getLogin() != null) {
+                        send(msg2);
+                    }
+                }
             } else {
                 String msg = "Incorrect username/password";
                 outputStream.write(msg.getBytes());
             }
+        }
+    }
+
+    private void send(String msg) throws IOException {
+        if (login != null) {
+            outputStream.write(msg.getBytes());
         }
     }
 }
